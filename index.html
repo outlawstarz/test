@@ -1,0 +1,705 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HabitQuest - Habit Tracker</title>
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { 
+            margin: 0; 
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif; 
+        }
+        .animate-spin {
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+        .animate-bounce {
+            animation: bounce 1s infinite;
+        }
+        @keyframes bounce {
+            0%, 100% { transform: translateY(-25%); animation-timing-function: cubic-bezier(0.8, 0, 1, 1); }
+            50% { transform: translateY(0); animation-timing-function: cubic-bezier(0, 0, 0.2, 1); }
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+    
+    <script type="text/babel">
+        const { useState, useEffect } = React;
+        
+        // Icon components using emoji
+        const Heart = ({ className, fill }) => React.createElement('span', { className, style: { color: fill ? 'red' : undefined } }, '❤️');
+        const Flame = ({ className }) => React.createElement('span', { className }, '🔥');
+        const Coins = ({ className }) => React.createElement('span', { className }, '🪙');
+        const Star = ({ className }) => React.createElement('span', { className }, '⭐');
+        const Trophy = ({ className }) => React.createElement('span', { className }, '🏆');
+        const Users = ({ className }) => React.createElement('span', { className }, '👥');
+        const Plus = ({ className }) => React.createElement('span', { className }, '➕');
+        const Settings = ({ className }) => React.createElement('span', { className }, '⚙️');
+        const Crown = ({ className }) => React.createElement('span', { className }, '👑');
+        const Zap = ({ className }) => React.createElement('span', { className }, '⚡');
+
+        // Mock data
+        const mockUser = {
+            id: 1,
+            username: 'habitmaster',
+            displayName: 'Sarah Johnson',
+            avatar: '👩‍💻',
+            level: 12,
+            xp: 2450,
+            xpToNext: 500,
+            currency: 1250,
+            currentStreak: 23,
+            totalHabits: 156,
+            theme: 'gradient-purple'
+        };
+
+        const mockHabits = [
+            {
+                id: 1,
+                name: 'Morning Meditation',
+                icon: '🧘‍♀️',
+                streak: 23,
+                completedToday: true,
+                color: 'from-purple-400 to-pink-400'
+            },
+            {
+                id: 2,
+                name: 'Drink 8 Glasses of Water',
+                icon: '💧',
+                streak: 18,
+                completedToday: false,
+                color: 'from-blue-400 to-cyan-400'
+            },
+            {
+                id: 3,
+                name: 'Read for 30 Minutes',
+                icon: '📚',
+                streak: 12,
+                completedToday: true,
+                color: 'from-green-400 to-emerald-400'
+            },
+            {
+                id: 4,
+                name: 'Exercise',
+                icon: '💪',
+                streak: 8,
+                completedToday: false,
+                color: 'from-orange-400 to-red-400'
+            }
+        ];
+
+        const mockFriends = [
+            { id: 1, name: 'Alex Chen', avatar: '👨‍💼', recentHabit: 'Completed workout!', time: '2h ago', encouraged: false },
+            { id: 2, name: 'Maya Patel', avatar: '👩‍🎨', recentHabit: 'Finished morning run', time: '3h ago', encouraged: false },
+            { id: 3, name: 'Jake Wilson', avatar: '👨‍🎓', recentHabit: 'Meditated for 20 mins', time: '5h ago', encouraged: false }
+        ];
+
+        const mockShopItems = [
+            { id: 'cosmic-theme', name: 'Cosmic Theme', type: 'theme', rarity: 'epic', price: 150, image: '🌌' },
+            { id: 'crown-badge', name: 'Crown Badge', type: 'badge', rarity: 'legendary', price: 300, image: '👑' },
+            { id: 'lightning-avatar', name: 'Lightning Avatar', type: 'avatar', rarity: 'rare', price: 75, image: '⚡' },
+            { id: 'plant-pet', name: 'Plant Pet', type: 'pet', rarity: 'common', price: 50, image: '🌱' }
+        ];
+
+        // Main App Component
+        const HabitTracker = () => {
+            const [activeTab, setActiveTab] = useState('dashboard');
+            const [habits, setHabits] = useState([]);
+            const [user, setUser] = useState(mockUser);
+            const [showCelebration, setShowCelebration] = useState(false);
+            const [inventory, setInventory] = useState([
+                { id: 'default-theme', itemId: 'default-theme', name: 'Default Theme', type: 'theme', equipped: true, image: '🎨' }
+            ]);
+            const [friends, setFriends] = useState(mockFriends);
+            const [showAddHabit, setShowAddHabit] = useState(false);
+            const [newHabit, setNewHabit] = useState({
+                name: '',
+                icon: '⭐',
+                color: 'from-purple-400 to-pink-400'
+            });
+
+            // Load data from localStorage
+            useEffect(() => {
+                try {
+                    const savedUser = localStorage.getItem('habitTracker_user');
+                    const savedHabits = localStorage.getItem('habitTracker_habits');
+                    const savedInventory = localStorage.getItem('habitTracker_inventory');
+                    const savedFriends = localStorage.getItem('habitTracker_friends');
+
+                    if (savedUser) setUser(JSON.parse(savedUser));
+                    if (savedHabits) {
+                        setHabits(JSON.parse(savedHabits));
+                    } else {
+                        setHabits(mockHabits);
+                    }
+                    if (savedInventory) setInventory(JSON.parse(savedInventory));
+                    if (savedFriends) setFriends(JSON.parse(savedFriends));
+                } catch (error) {
+                    setHabits(mockHabits);
+                }
+            }, []);
+
+            // Save data to localStorage
+            useEffect(() => {
+                localStorage.setItem('habitTracker_user', JSON.stringify(user));
+            }, [user]);
+
+            useEffect(() => {
+                localStorage.setItem('habitTracker_habits', JSON.stringify(habits));
+            }, [habits]);
+
+            useEffect(() => {
+                localStorage.setItem('habitTracker_inventory', JSON.stringify(inventory));
+            }, [inventory]);
+
+            useEffect(() => {
+                localStorage.setItem('habitTracker_friends', JSON.stringify(friends));
+            }, [friends]);
+
+            const completeHabit = (habitId) => {
+                setHabits(prev => prev.map(habit => 
+                    habit.id === habitId 
+                        ? { ...habit, completedToday: true, streak: habit.streak + 1 }
+                        : habit
+                ));
+                setUser(prev => ({ ...prev, currency: prev.currency + 10 }));
+                setShowCelebration(true);
+                setTimeout(() => setShowCelebration(false), 2000);
+            };
+
+            const addHabit = () => {
+                if (newHabit.name.trim()) {
+                    const habit = {
+                        id: Date.now(),
+                        name: newHabit.name,
+                        icon: newHabit.icon,
+                        streak: 0,
+                        completedToday: false,
+                        color: newHabit.color
+                    };
+                    setHabits(prev => [...prev, habit]);
+                    setNewHabit({ name: '', icon: '⭐', color: 'from-purple-400 to-pink-400' });
+                    setShowAddHabit(false);
+                }
+            };
+
+            const deleteHabit = (habitId) => {
+                const confirmed = window.confirm('Are you sure you want to delete this habit?');
+                if (confirmed) {
+                    setHabits(prev => prev.filter(habit => habit.id !== habitId));
+                }
+            };
+
+            const encourageFriend = (friendId) => {
+                setFriends(prev => prev.map(friend => 
+                    friend.id === friendId 
+                        ? { ...friend, encouraged: true }
+                        : friend
+                ));
+                setUser(prev => ({ ...prev, currency: prev.currency + 5 }));
+            };
+
+            const purchaseItem = (item) => {
+                const alreadyOwned = inventory.some(invItem => invItem.itemId === item.id);
+                
+                if (alreadyOwned) {
+                    alert('You already own this item!');
+                    return;
+                }
+                
+                if (user.currency >= item.price) {
+                    setUser(prev => ({ ...prev, currency: prev.currency - item.price }));
+                    
+                    const newItem = {
+                        id: `inv-${Date.now()}`,
+                        itemId: item.id,
+                        name: item.name,
+                        type: item.type,
+                        equipped: false,
+                        image: item.image
+                    };
+                    
+                    setInventory(prev => [...prev, newItem]);
+                    alert(`Purchased ${item.name}! Check your profile to equip it. 🎉`);
+                } else {
+                    alert('Not enough currency! Complete more habits to earn coins.');
+                }
+            };
+
+            const equipItem = (invItem) => {
+                setInventory(prev => prev.map(item => {
+                    if (item.type === invItem.type && item.id !== invItem.id) {
+                        return { ...item, equipped: false };
+                    }
+                    if (item.id === invItem.id) {
+                        return { ...item, equipped: !item.equipped };
+                    }
+                    return item;
+                }));
+            };
+
+            // Get equipped items
+            const equippedTheme = inventory.find(item => item.type === 'theme' && item.equipped);
+            const equippedBadge = inventory.find(item => item.type === 'badge' && item.equipped);
+            const equippedAvatar = inventory.find(item => item.type === 'avatar' && item.equipped);
+            const equippedPet = inventory.find(item => item.type === 'pet' && item.equipped);
+
+            return React.createElement('div', { className: 'min-h-screen bg-gradient-to-br from-purple-50 to-pink-50' },
+                // Navigation
+                React.createElement('nav', { className: 'bg-white border-b sticky top-0 z-10' },
+                    React.createElement('div', { className: 'max-w-6xl mx-auto px-4' },
+                        React.createElement('div', { className: 'flex items-center justify-between h-16' },
+                            // Logo
+                            React.createElement('div', { className: 'flex items-center gap-2' },
+                                React.createElement(Zap, { className: 'w-8 h-8 text-purple-600' }),
+                                React.createElement('span', { className: 'text-xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent' }, 'HabitQuest')
+                            ),
+                            // Navigation buttons
+                            React.createElement('div', { className: 'flex items-center gap-6' },
+                                React.createElement('button', {
+                                    onClick: () => setActiveTab('dashboard'),
+                                    className: `px-4 py-2 rounded-lg font-medium transition-all ${
+                                        activeTab === 'dashboard' 
+                                            ? 'bg-purple-100 text-purple-700' 
+                                            : 'text-gray-600 hover:text-purple-600'
+                                    }`
+                                }, 'Dashboard'),
+                                React.createElement('button', {
+                                    onClick: () => setActiveTab('shop'),
+                                    className: `px-4 py-2 rounded-lg font-medium transition-all ${
+                                        activeTab === 'shop' 
+                                            ? 'bg-purple-100 text-purple-700' 
+                                            : 'text-gray-600 hover:text-purple-600'
+                                    }`
+                                }, 'Shop'),
+                                React.createElement('button', {
+                                    onClick: () => setActiveTab('profile'),
+                                    className: `px-4 py-2 rounded-lg font-medium transition-all ${
+                                        activeTab === 'profile' 
+                                            ? 'bg-purple-100 text-purple-700' 
+                                            : 'text-gray-600 hover:text-purple-600'
+                                    }`
+                                }, 'Profile'),
+                                // Currency and avatar
+                                React.createElement('div', { className: 'flex items-center gap-3' },
+                                    React.createElement('div', { className: 'flex items-center gap-2 bg-yellow-100 px-3 py-1 rounded-full' },
+                                        React.createElement(Coins, { className: 'w-4 h-4 text-yellow-600' }),
+                                        React.createElement('span', { className: 'text-sm font-semibold text-yellow-800' }, user.currency)
+                                    ),
+                                    React.createElement('div', { className: 'text-2xl' }, equippedAvatar ? equippedAvatar.image : user.avatar)
+                                )
+                            )
+                        )
+                    )
+                ),
+                
+                // Main content
+                React.createElement('main', { className: 'max-w-6xl mx-auto px-4 py-8' },
+                    activeTab === 'dashboard' && React.createElement('div', { className: 'space-y-6' },
+                        // Stats
+                        React.createElement('div', { className: 'grid grid-cols-2 md:grid-cols-4 gap-4' },
+                            React.createElement('div', { className: 'bg-white rounded-xl p-4 shadow-sm border' },
+                                React.createElement('div', { className: 'flex items-center gap-3' },
+                                    React.createElement('div', { className: 'p-2 bg-orange-100 rounded-lg' },
+                                        React.createElement(Flame, { className: 'w-5 h-5 text-orange-500' })
+                                    ),
+                                    React.createElement('div', null,
+                                        React.createElement('div', { className: 'text-2xl font-bold text-gray-800' }, user.currentStreak),
+                                        React.createElement('div', { className: 'text-sm text-gray-600' }, 'Current Streak')
+                                    )
+                                )
+                            ),
+                            React.createElement('div', { className: 'bg-white rounded-xl p-4 shadow-sm border' },
+                                React.createElement('div', { className: 'flex items-center gap-3' },
+                                    React.createElement('div', { className: 'p-2 bg-yellow-100 rounded-lg' },
+                                        React.createElement(Coins, { className: 'w-5 h-5 text-yellow-500' })
+                                    ),
+                                    React.createElement('div', null,
+                                        React.createElement('div', { className: 'text-2xl font-bold text-gray-800' }, user.currency),
+                                        React.createElement('div', { className: 'text-sm text-gray-600' }, 'Habit Coins')
+                                    )
+                                )
+                            ),
+                            React.createElement('div', { className: 'bg-white rounded-xl p-4 shadow-sm border' },
+                                React.createElement('div', { className: 'flex items-center gap-3' },
+                                    React.createElement('div', { className: 'p-2 bg-purple-100 rounded-lg' },
+                                        React.createElement(Star, { className: 'w-5 h-5 text-purple-500' })
+                                    ),
+                                    React.createElement('div', null,
+                                        React.createElement('div', { className: 'text-2xl font-bold text-gray-800' }, user.level),
+                                        React.createElement('div', { className: 'text-sm text-gray-600' }, 'Level')
+                                    )
+                                )
+                            ),
+                            React.createElement('div', { className: 'bg-white rounded-xl p-4 shadow-sm border' },
+                                React.createElement('div', { className: 'flex items-center gap-3' },
+                                    React.createElement('div', { className: 'p-2 bg-green-100 rounded-lg' },
+                                        React.createElement(Trophy, { className: 'w-5 h-5 text-green-500' })
+                                    ),
+                                    React.createElement('div', null,
+                                        React.createElement('div', { className: 'text-2xl font-bold text-gray-800' }, user.totalHabits),
+                                        React.createElement('div', { className: 'text-sm text-gray-600' }, 'Total Habits')
+                                    )
+                                )
+                            )
+                        ),
+                        
+                        // Habits section
+                        React.createElement('div', null,
+                            React.createElement('h2', { className: 'text-2xl font-bold text-gray-800 mb-4' }, 'Today\'s Habits'),
+                            habits.length === 0 
+                                ? React.createElement('div', { className: 'text-center py-12 bg-white rounded-2xl border' },
+                                    React.createElement('div', { className: 'text-6xl mb-4' }, '🎯'),
+                                    React.createElement('h3', { className: 'text-xl font-semibold text-gray-700 mb-2' }, 'No habits yet!'),
+                                    React.createElement('p', { className: 'text-gray-500 mb-4' }, 'Create your first habit to start building great routines.'),
+                                    React.createElement('button', {
+                                        onClick: () => setShowAddHabit(true),
+                                        className: 'bg-gradient-to-r from-purple-500 to-pink-500 text-white px-6 py-3 rounded-lg font-semibold hover:from-purple-600 hover:to-pink-600 transition-all'
+                                    }, 'Create Your First Habit')
+                                )
+                                : React.createElement('div', { className: 'grid grid-cols-1 md:grid-cols-2 gap-4' },
+                                    ...habits.map(habit => React.createElement(HabitCard, {
+                                        key: habit.id,
+                                        habit: habit,
+                                        onComplete: completeHabit,
+                                        onDelete: deleteHabit
+                                    }))
+                                )
+                        ),
+                        
+                        // Friends section
+                        React.createElement('div', null,
+                            React.createElement('h2', { className: 'text-2xl font-bold text-gray-800 mb-4' }, 'Friend Activity'),
+                            React.createElement('div', { className: 'space-y-3' },
+                                ...friends.map(friend => React.createElement('div', {
+                                    key: friend.id,
+                                    className: 'flex items-center gap-3 p-3 bg-white rounded-lg border hover:shadow-md transition-shadow'
+                                },
+                                    React.createElement('div', { className: 'text-2xl' }, friend.avatar),
+                                    React.createElement('div', { className: 'flex-1' },
+                                        React.createElement('div', { className: 'font-semibold text-gray-800' }, friend.name),
+                                        React.createElement('div', { className: 'text-sm text-gray-600' }, friend.recentHabit)
+                                    ),
+                                    React.createElement('div', { className: 'text-xs text-gray-500' }, friend.time),
+                                    React.createElement('button', {
+                                        onClick: () => encourageFriend(friend.id),
+                                        disabled: friend.encouraged,
+                                        className: `p-1 rounded transition-all ${
+                                            friend.encouraged 
+                                                ? 'bg-red-100 text-red-600 cursor-not-allowed' 
+                                                : 'hover:bg-gray-100 text-red-400 hover:text-red-600'
+                                        }`,
+                                        title: friend.encouraged ? 'Already encouraged!' : 'Encourage friend'
+                                    }, React.createElement(Heart, { className: 'w-4 h-4', fill: friend.encouraged }))
+                                ))
+                            )
+                        )
+                    ),
+                    
+                    // Shop tab
+                    activeTab === 'shop' && React.createElement('div', null,
+                        React.createElement('div', { className: 'flex items-center justify-between mb-6' },
+                            React.createElement('h2', { className: 'text-2xl font-bold text-gray-800' }, 'Daily Shop'),
+                            React.createElement('div', { className: 'flex items-center gap-2 bg-yellow-100 px-3 py-2 rounded-lg' },
+                                React.createElement(Coins, { className: 'w-5 h-5 text-yellow-600' }),
+                                React.createElement('span', { className: 'font-semibold text-yellow-800' }, user.currency)
+                            )
+                        ),
+                        React.createElement('div', { className: 'grid grid-cols-2 md:grid-cols-4 gap-4' },
+                            ...mockShopItems.map(item => {
+                                const isOwned = inventory.some(invItem => invItem.itemId === item.id);
+                                return React.createElement('div', {
+                                    key: item.id,
+                                    className: 'bg-white rounded-xl p-4 border shadow-sm hover:shadow-md transition-shadow'
+                                },
+                                    React.createElement('div', { className: 'text-3xl text-center mb-2' }, item.image),
+                                    React.createElement('h4', { className: 'font-semibold text-center text-gray-800' }, item.name),
+                                    React.createElement('div', {
+                                        className: `text-xs text-center mb-3 ${
+                                            item.rarity === 'legendary' ? 'text-yellow-600' :
+                                            item.rarity === 'epic' ? 'text-purple-600' :
+                                            item.rarity === 'rare' ? 'text-blue-600' : 'text-gray-600'
+                                        }`
+                                    }, item.rarity.toUpperCase()),
+                                    React.createElement('button', {
+                                        onClick: () => purchaseItem(item),
+                                        disabled: isOwned,
+                                        className: `w-full py-2 rounded-lg font-semibold transition-all ${
+                                            isOwned 
+                                                ? 'bg-gray-200 text-gray-500 cursor-not-allowed'
+                                                : 'bg-gradient-to-r from-purple-500 to-pink-500 text-white hover:from-purple-600 hover:to-pink-600'
+                                        }`
+                                    }, isOwned ? '✓ Owned' : `🪙 ${item.price}`)
+                                );
+                            })
+                        )
+                    ),
+                    
+                    // Profile tab
+                    activeTab === 'profile' && React.createElement('div', { className: 'max-w-4xl mx-auto' },
+                        React.createElement('div', {
+                            className: `bg-gradient-to-br ${equippedTheme?.itemId === 'cosmic-theme' ? 'from-indigo-600 to-purple-800' : 'from-purple-400 to-pink-400'} rounded-2xl p-8 text-white text-center mb-6 relative`
+                        },
+                            equippedBadge && React.createElement('div', { className: 'absolute top-4 right-4 text-3xl', title: equippedBadge.name }, equippedBadge.image),
+                            equippedPet && React.createElement('div', { className: 'absolute top-4 left-4 text-3xl', title: equippedPet.name }, equippedPet.image),
+                            React.createElement('div', { className: 'text-6xl mb-4' }, equippedAvatar ? equippedAvatar.image : user.avatar),
+                            React.createElement('h2', { className: 'text-2xl font-bold mb-2' }, user.displayName),
+                            React.createElement('p', { className: 'opacity-90' }, `@${user.username}`),
+                            React.createElement('div', { className: 'flex items-center justify-center gap-2 mt-4' },
+                                React.createElement(Crown, { className: 'w-5 h-5' }),
+                                React.createElement('span', null, `Level ${user.level}`)
+                            ),
+                            equippedTheme?.itemId === 'cosmic-theme' && React.createElement('div', { className: 'mt-2 text-sm opacity-75' }, '✨ Cosmic Theme Active ✨')
+                        ),
+                        React.createElement('div', { className: 'grid grid-cols-2 gap-4 mb-8' },
+                            React.createElement('div', { className: 'bg-white p-6 rounded-xl border text-center' },
+                                React.createElement('div', { className: 'text-3xl font-bold text-orange-500 mb-2' }, user.currentStreak),
+                                React.createElement('div', { className: 'text-gray-600' }, 'Day Streak')
+                            ),
+                            React.createElement('div', { className: 'bg-white p-6 rounded-xl border text-center' },
+                                React.createElement('div', { className: 'text-3xl font-bold text-green-500 mb-2' }, user.totalHabits),
+                                React.createElement('div', { className: 'text-gray-600' }, 'Habits Completed')
+                            )
+                        ),
+                        React.createElement('div', { className: 'bg-white rounded-xl p-6 border' },
+                            React.createElement('h3', { className: 'text-2xl font-bold text-gray-800 mb-4' }, `My Inventory (${inventory.length} items)`),
+                            React.createElement('div', { className: 'grid grid-cols-3 md:grid-cols-6 gap-4' },
+                                ...inventory.map(item => React.createElement('div', {
+                                    key: item.id,
+                                    className: `bg-white rounded-xl p-4 border-2 shadow-sm hover:shadow-md transition-all cursor-pointer ${
+                                        item.equipped ? 'border-purple-400 bg-purple-50' : 'border-gray-200'
+                                    }`,
+                                    onClick: () => equipItem(item)
+                                },
+                                    React.createElement('div', { className: 'text-3xl text-center mb-2' }, item.image),
+                                    React.createElement('h4', { className: 'font-semibold text-center text-gray-800 text-sm' }, item.name),
+                                    React.createElement('div', { className: 'text-xs text-center text-gray-500 mb-2' }, item.type),
+                                    item.equipped 
+                                        ? React.createElement('div', { className: 'text-xs text-center text-purple-600 font-semibold' }, '✓ EQUIPPED')
+                                        : React.createElement('div', { className: 'text-xs text-center text-gray-400' }, 'Click to equip')
+                                ))
+                            )
+                        )
+                    )
+                ),
+                
+                // Celebration overlay
+                showCelebration && React.createElement('div', { className: 'fixed inset-0 pointer-events-none z-50 flex items-center justify-center' },
+                    React.createElement('div', { className: 'text-8xl animate-bounce' }, '🎉'),
+                    React.createElement('div', { className: 'absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 mt-20' },
+                        React.createElement('div', { className: 'bg-white px-6 py-3 rounded-full shadow-lg' },
+                            React.createElement('span', { className: 'font-bold text-green-600' }, '+10 Habit Coins!')
+                        )
+                    )
+                ),
+                
+                // Add habit button
+                React.createElement('button', {
+                    onClick: () => setShowAddHabit(true),
+                    className: 'fixed bottom-6 right-6 w-14 h-14 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-full shadow-lg hover:shadow-xl transform hover:scale-110 transition-all duration-200 flex items-center justify-center'
+                }, React.createElement(Plus, { className: 'w-6 h-6' })),
+                
+                // Add habit modal
+                showAddHabit && React.createElement(AddHabitModal, {
+                    show: showAddHabit,
+                    onClose: () => setShowAddHabit(false),
+                    newHabit: newHabit,
+                    setNewHabit: setNewHabit,
+                    onAdd: addHabit
+                })
+            );
+        };
+
+        // Habit Card Component
+        const HabitCard = ({ habit, onComplete, onDelete }) => {
+            const [isCompleting, setIsCompleting] = useState(false);
+            const [showMenu, setShowMenu] = useState(false);
+
+            const handleComplete = () => {
+                setIsCompleting(true);
+                setTimeout(() => {
+                    onComplete(habit.id);
+                    setIsCompleting(false);
+                }, 600);
+            };
+
+            const handleDelete = () => {
+                setShowMenu(false);
+                setTimeout(() => {
+                    const confirmed = window.confirm(`Are you sure you want to delete "${habit.name}"?`);
+                    if (confirmed) {
+                        onDelete(habit.id);
+                    }
+                }, 100);
+            };
+
+            return React.createElement('div', {
+                className: `relative p-6 rounded-2xl bg-gradient-to-br ${habit.color} text-white shadow-lg transform transition-all duration-300 hover:scale-105 ${habit.completedToday ? 'opacity-75' : ''}`
+            },
+                // Menu button
+                React.createElement('button', {
+                    onClick: () => setShowMenu(!showMenu),
+                    className: 'absolute top-2 right-2 w-8 h-8 bg-white bg-opacity-20 rounded-full flex items-center justify-center hover:bg-opacity-30 transition-all z-20',
+                    type: 'button'
+                },
+                    React.createElement('div', { className: 'flex flex-col gap-0.5' },
+                        React.createElement('div', { className: 'w-1 h-1 bg-white rounded-full' }),
+                        React.createElement('div', { className: 'w-1 h-1 bg-white rounded-full' }),
+                        React.createElement('div', { className: 'w-1 h-1 bg-white rounded-full' })
+                    )
+                ),
+
+                // Dropdown menu
+                showMenu && React.createElement('div', null,
+                    React.createElement('div', { 
+                        className: 'fixed inset-0 z-10', 
+                        onClick: () => setShowMenu(false)
+                    }),
+                    React.createElement('div', { className: 'absolute top-10 right-2 bg-white rounded-lg shadow-lg border py-1 z-30 min-w-[120px]' },
+                        React.createElement('button', {
+                            onClick: handleDelete,
+                            className: 'w-full px-4 py-2 text-left text-red-600 hover:bg-red-50 text-sm whitespace-nowrap',
+                            type: 'button'
+                        }, 'Delete Habit')
+                    )
+                ),
+
+                // Completed indicator
+                habit.completedToday && React.createElement('div', { className: 'absolute top-4 right-12' },
+                    React.createElement('div', { className: 'w-8 h-8 bg-white bg-opacity-30 rounded-full flex items-center justify-center' },
+                        React.createElement('span', { className: 'text-2xl' }, '✓')
+                    )
+                ),
+                
+                // Habit info
+                React.createElement('div', { className: 'flex items-center gap-3 mb-4' },
+                    React.createElement('span', { className: 'text-3xl' }, habit.icon),
+                    React.createElement('div', null,
+                        React.createElement('h3', { className: 'font-bold text-lg' }, habit.name),
+                        React.createElement('div', { className: 'flex items-center gap-2 text-sm opacity-90' },
+                            React.createElement(Flame, { className: 'w-4 h-4' }),
+                            React.createElement('span', null, `${habit.streak} day streak`)
+                        )
+                    )
+                ),
+
+                // Complete button
+                !habit.completedToday && React.createElement('button', {
+                    onClick: handleComplete,
+                    disabled: isCompleting,
+                    className: 'w-full py-3 bg-white bg-opacity-20 hover:bg-opacity-30 rounded-xl font-semibold transition-all duration-200 disabled:opacity-50',
+                    type: 'button'
+                },
+                    isCompleting 
+                        ? React.createElement('div', { className: 'flex items-center justify-center gap-2' },
+                            React.createElement('div', { className: 'w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin' }),
+                            'Completing...'
+                        )
+                        : 'Mark Complete'
+                ),
+
+                // Completion animation
+                isCompleting && React.createElement('div', { className: 'absolute inset-0 flex items-center justify-center bg-white bg-opacity-20 rounded-2xl' },
+                    React.createElement('div', { className: 'text-6xl animate-bounce' }, '🎉')
+                )
+            );
+        };
+
+        // Add Habit Modal Component
+        const AddHabitModal = ({ show, onClose, newHabit, setNewHabit, onAdd }) => {
+            if (!show) return null;
+
+            const habitIcons = ['⭐', '🎯', '💪', '📚', '🧘‍♀️', '💧', '🏃‍♂️', '🎨', '🎵', '🌱', '☀️', '🍎'];
+            const habitColors = [
+                'from-purple-400 to-pink-400',
+                'from-blue-400 to-cyan-400', 
+                'from-green-400 to-emerald-400',
+                'from-orange-400 to-red-400',
+                'from-yellow-400 to-orange-400',
+                'from-pink-400 to-rose-400',
+                'from-indigo-400 to-purple-400',
+                'from-cyan-400 to-blue-400'
+            ];
+
+            return React.createElement('div', { className: 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4' },
+                React.createElement('div', { className: 'bg-white rounded-2xl p-6 w-full max-w-md' },
+                    React.createElement('h2', { className: 'text-2xl font-bold text-gray-800 mb-4' }, 'Create New Habit'),
+                    
+                    // Name input
+                    React.createElement('div', { className: 'mb-4' },
+                        React.createElement('label', { className: 'block text-sm font-semibold text-gray-700 mb-2' }, 'Habit Name'),
+                        React.createElement('input', {
+                            type: 'text',
+                            value: newHabit.name,
+                            onChange: (e) => setNewHabit(prev => ({ ...prev, name: e.target.value })),
+                            className: 'w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent',
+                            placeholder: 'e.g. Morning Meditation',
+                            maxLength: 50
+                        })
+                    ),
+
+                    // Icon selection
+                    React.createElement('div', { className: 'mb-4' },
+                        React.createElement('label', { className: 'block text-sm font-semibold text-gray-700 mb-2' }, 'Choose Icon'),
+                        React.createElement('div', { className: 'grid grid-cols-6 gap-2' },
+                            ...habitIcons.map(icon =>
+                                React.createElement('button', {
+                                    key: icon,
+                                    onClick: () => setNewHabit(prev => ({ ...prev, icon })),
+                                    className: `p-3 text-2xl rounded-lg border-2 transition-all ${
+                                        newHabit.icon === icon 
+                                            ? 'border-purple-400 bg-purple-50' 
+                                            : 'border-gray-200 hover:border-purple-300'
+                                    }`
+                                }, icon)
+                            )
+                        )
+                    ),
+
+                    // Color selection
+                    React.createElement('div', { className: 'mb-6' },
+                        React.createElement('label', { className: 'block text-sm font-semibold text-gray-700 mb-2' }, 'Choose Color'),
+                        React.createElement('div', { className: 'grid grid-cols-4 gap-2' },
+                            ...habitColors.map(color =>
+                                React.createElement('button', {
+                                    key: color,
+                                    onClick: () => setNewHabit(prev => ({ ...prev, color })),
+                                    className: `h-12 rounded-lg bg-gradient-to-r ${color} border-2 transition-all ${
+                                        newHabit.color === color 
+                                            ? 'border-gray-800' 
+                                            : 'border-gray-200 hover:border-gray-400'
+                                    }`
+                                })
+                            )
+                        )
+                    ),
+
+                    // Buttons
+                    React.createElement('div', { className: 'flex gap-3' },
+                        React.createElement('button', {
+                            onClick: onClose,
+                            className: 'flex-1 py-3 px-4 bg-gray-200 text-gray-800 rounded-lg font-semibold hover:bg-gray-300 transition-all'
+                        }, 'Cancel'),
+                        React.createElement('button', {
+                            onClick: onAdd,
+                            disabled: !newHabit.name.trim(),
+                            className: 'flex-1 py-3 px-4 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-lg font-semibold hover:from-purple-600 hover:to-pink-600 transition-all disabled:opacity-50 disabled:cursor-not-allowed'
+                        }, 'Create Habit')
+                    )
+                )
+            );
+        };
+
+        ReactDOM.render(React.createElement(HabitTracker), document.getElementById('root'));
+    </script>
+</body>
+</html>
