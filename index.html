@@ -11,7 +11,7 @@
     <style>
         body { 
             margin: 0; 
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif; 
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif; 
         }
         .animate-spin {
             animation: spin 1s linear infinite;
@@ -24,8 +24,8 @@
             animation: bounce 1s infinite;
         }
         @keyframes bounce {
-            0%, 100% { transform: translateY(-25%); animation-timing-function: cubic-bezier(0.8, 0, 1, 1); }
-            50% { transform: translateY(0); animation-timing-function: cubic-bezier(0, 0, 0.2, 1); }
+            0%, 100% { transform: translateY(-25%); }
+            50% { transform: translateY(0); }
         }
     </style>
 </head>
@@ -35,15 +35,13 @@
     <script type="text/babel">
         const { useState, useEffect } = React;
         
-        // Icon components using emoji
+        // Icon components
         const Heart = ({ className, fill }) => <span className={className} style={{ color: fill ? 'red' : undefined }}>❤️</span>;
         const Flame = ({ className }) => <span className={className}>🔥</span>;
         const Coins = ({ className }) => <span className={className}>🪙</span>;
         const Star = ({ className }) => <span className={className}>⭐</span>;
         const Trophy = ({ className }) => <span className={className}>🏆</span>;
-        const Users = ({ className }) => <span className={className}>👥</span>;
         const Plus = ({ className }) => <span className={className}>➕</span>;
-        const Settings = ({ className }) => <span className={className}>⚙️</span>;
         const Crown = ({ className }) => <span className={className}>👑</span>;
         const Zap = ({ className }) => <span className={className}>⚡</span>;
 
@@ -63,7 +61,6 @@
                 ACHIEVEMENT: 50
             },
             PREMIUM: {
-                MONTHLY_PRICE: 9.99,
                 COIN_MULTIPLIER: 2,
                 VIP_MULTIPLIER: 3
             },
@@ -74,31 +71,8 @@
             }
         };
 
-        // Daily challenges
-        const DAILY_CHALLENGES = [
-            { id: 1, name: 'Early Bird', description: 'Complete 3 habits before noon', reward: 25, type: 'time', target: 3 },
-            { id: 2, name: 'Streak Master', description: 'Complete a habit with 7+ day streak', reward: 30, type: 'streak', target: 7 },
-            { id: 3, name: 'Perfectionist', description: 'Complete all your habits today', reward: 50, type: 'complete_all', target: 1 }
-        ];
-
-        // Achievements
-        const ACHIEVEMENTS = [
-            { id: 1, name: 'First Steps', description: 'Complete your first habit', icon: '👶', category: 'beginner' },
-            { id: 2, name: 'Week Warrior', description: 'Maintain a 7-day streak', icon: '🔥', category: 'streaks' },
-            { id: 3, name: 'Month Master', description: 'Maintain a 30-day streak', icon: '👑', category: 'streaks' },
-            { id: 4, name: 'Socializer', description: 'Encourage 10 friends', icon: '🤝', category: 'social' }
-        ];
-
-        // Categories
-        const HABIT_CATEGORIES = [
-            { id: 'health', name: 'Health & Fitness', icon: '💪', color: 'from-green-400 to-emerald-400' },
-            { id: 'mindfulness', name: 'Mindfulness', icon: '🧘‍♀️', color: 'from-purple-400 to-pink-400' },
-            { id: 'productivity', name: 'Productivity', icon: '⚡', color: 'from-blue-400 to-cyan-400' },
-            { id: 'learning', name: 'Learning', icon: '📚', color: 'from-orange-400 to-red-400' }
-        ];
-
         // Mock data
-        const mockUser = {
+        const initialUser = {
             id: 1,
             username: 'habitmaster',
             displayName: 'Sarah Johnson',
@@ -112,7 +86,7 @@
             totalHabits: 156,
             subscription: 'free',
             coinsEarnedToday: 0,
-            lastActiveDate: new Date().toDateString(),
+            lastActiveDate: '2024-01-01', // Force a reset on first load
             achievements: [1, 2],
             completedChallenges: [],
             joinDate: new Date('2024-01-15'),
@@ -120,7 +94,7 @@
             habitsCreated: 4
         };
 
-        const mockHabits = [
+        const initialHabits = [
             {
                 id: 1,
                 name: 'Morning Meditation',
@@ -153,16 +127,36 @@
             }
         ];
 
-        const mockFriends = [
+        const initialFriends = [
             { id: 1, name: 'Alex Chen', avatar: '👨‍💼', recentHabit: 'Completed workout!', time: '2h ago', encouraged: false },
             { id: 2, name: 'Maya Patel', avatar: '👩‍🎨', recentHabit: 'Finished morning run', time: '3h ago', encouraged: false }
         ];
 
-        const mockShopItems = [
+        const shopItems = [
             { id: 'cosmic-theme', name: 'Cosmic Theme', type: 'theme', rarity: 'epic', price: 150, image: '🌌' },
             { id: 'crown-badge', name: 'Crown Badge', type: 'badge', rarity: 'legendary', price: 300, image: '👑' },
             { id: 'lightning-avatar', name: 'Lightning Avatar', type: 'avatar', rarity: 'rare', price: 75, image: '⚡' },
             { id: 'plant-pet', name: 'Plant Pet', type: 'pet', rarity: 'common', price: 50, image: '🌱' }
+        ];
+
+        const categories = [
+            { id: 'health', name: 'Health', icon: '💪', color: 'from-green-400 to-emerald-400' },
+            { id: 'mindfulness', name: 'Mind', icon: '🧘‍♀️', color: 'from-purple-400 to-pink-400' },
+            { id: 'productivity', name: 'Work', icon: '⚡', color: 'from-blue-400 to-cyan-400' },
+            { id: 'learning', name: 'Learn', icon: '📚', color: 'from-orange-400 to-red-400' }
+        ];
+
+        const challenges = [
+            { id: 1, name: 'Early Bird', description: 'Complete 3 habits before noon', reward: 25 },
+            { id: 2, name: 'Streak Master', description: 'Complete a habit with 7+ day streak', reward: 30 },
+            { id: 3, name: 'Perfectionist', description: 'Complete all your habits today', reward: 50 }
+        ];
+
+        const achievements = [
+            { id: 1, name: 'First Steps', description: 'Complete your first habit', icon: '👶', category: 'beginner' },
+            { id: 2, name: 'Week Warrior', description: 'Maintain a 7-day streak', icon: '🔥', category: 'streaks' },
+            { id: 3, name: 'Month Master', description: 'Maintain a 30-day streak', icon: '👑', category: 'streaks' },
+            { id: 4, name: 'Socializer', description: 'Encourage 10 friends', icon: '🤝', category: 'social' }
         ];
 
         // Components
@@ -176,6 +170,13 @@
                     onComplete(habit.id);
                     setIsCompleting(false);
                 }, 600);
+            };
+
+            const handleDelete = () => {
+                if (window.confirm(`Delete "${habit.name}"?`)) {
+                    onDelete(habit.id);
+                }
+                setShowMenu(false);
             };
 
             return (
@@ -194,12 +195,9 @@
                     {showMenu && (
                         <>
                             <div className="fixed inset-0 z-10" onClick={() => setShowMenu(false)}></div>
-                            <div className="absolute top-10 right-2 bg-white rounded-lg shadow-lg border py-1 z-30 min-w-[120px]">
+                            <div className="absolute top-10 right-2 bg-white rounded-lg shadow-lg border py-1 z-30">
                                 <button 
-                                    onClick={() => {
-                                        onDelete(habit.id);
-                                        setShowMenu(false);
-                                    }}
+                                    onClick={handleDelete}
                                     className="w-full px-4 py-2 text-left text-red-600 hover:bg-red-50 text-sm"
                                 >
                                     Delete Habit
@@ -266,7 +264,7 @@
 
             return (
                 <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-                    <div className="bg-white rounded-2xl p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
+                    <div className="bg-white rounded-2xl p-6 w-full max-w-md">
                         <h2 className="text-2xl font-bold text-gray-800 mb-4">Create New Habit</h2>
                         
                         <div className="mb-4">
@@ -284,11 +282,11 @@
                         <div className="mb-4">
                             <label className="block text-sm font-semibold text-gray-700 mb-2">Category</label>
                             <div className="grid grid-cols-2 gap-2">
-                                {HABIT_CATEGORIES.map(category => (
+                                {categories.map(category => (
                                     <button
                                         key={category.id}
                                         onClick={() => setNewHabit(prev => ({ ...prev, category: category.id }))}
-                                        className={`p-3 text-sm rounded-lg border-2 transition-all ${
+                                        className={`p-2 text-sm rounded-lg border-2 transition-all ${
                                             newHabit.category === category.id 
                                                 ? 'border-purple-400 bg-purple-50' 
                                                 : 'border-gray-200 hover:border-purple-300'
@@ -346,7 +344,7 @@
                             <button 
                                 onClick={onAdd}
                                 disabled={!newHabit.name.trim()}
-                                className="flex-1 py-3 px-4 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-lg font-semibold hover:from-purple-600 hover:to-pink-600 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                                className="flex-1 py-3 px-4 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-lg font-semibold hover:from-purple-600 hover:to-pink-600 transition-all disabled:opacity-50"
                             >
                                 Create Habit
                             </button>
@@ -359,13 +357,13 @@
         // Main App
         const HabitTracker = () => {
             const [activeTab, setActiveTab] = useState('dashboard');
-            const [habits, setHabits] = useState([]);
-            const [user, setUser] = useState(mockUser);
-            const [showCelebration, setShowCelebration] = useState(false);
+            const [user, setUser] = useState(initialUser);
+            const [habits, setHabits] = useState(initialHabits);
+            const [friends, setFriends] = useState(initialFriends);
             const [inventory, setInventory] = useState([
                 { id: 'default-theme', itemId: 'default-theme', name: 'Default Theme', type: 'theme', equipped: true, image: '🎨' }
             ]);
-            const [friends, setFriends] = useState(mockFriends);
+            const [showCelebration, setShowCelebration] = useState(false);
             const [showAddHabit, setShowAddHabit] = useState(false);
             const [newHabit, setNewHabit] = useState({
                 name: '',
@@ -374,9 +372,9 @@
                 color: 'from-purple-400 to-pink-400'
             });
             const [selectedCategory, setSelectedCategory] = useState('all');
-            const [dailyChallenge, setDailyChallenge] = useState(null);
+            const [dailyChallenge, setDailyChallenge] = useState(challenges[0]);
 
-            // Load saved data
+            // Load and save data
             useEffect(() => {
                 try {
                     const savedUser = localStorage.getItem('habitTracker_user');
@@ -384,53 +382,69 @@
                     const savedInventory = localStorage.getItem('habitTracker_inventory');
                     const savedFriends = localStorage.getItem('habitTracker_friends');
 
-                    if (savedUser) setUser(JSON.parse(savedUser));
-                    if (savedHabits) {
+                    if (savedUser) {
+                        const parsedUser = JSON.parse(savedUser);
+                        
+                        // Check if it's a new day and reset
+                        const today = new Date().toDateString();
+                        if (parsedUser.lastActiveDate !== today) {
+                            console.log('New day detected! Resetting habits...');
+                            
+                            // Reset user daily data
+                            parsedUser.coinsEarnedToday = 0;
+                            parsedUser.lastActiveDate = today;
+                            parsedUser.completedChallenges = [];
+                            
+                            setUser(parsedUser);
+                            
+                            // Reset habits completion status
+                            if (savedHabits) {
+                                const parsedHabits = JSON.parse(savedHabits);
+                                const resetHabits = parsedHabits.map(habit => ({
+                                    ...habit,
+                                    completedToday: false
+                                }));
+                                setHabits(resetHabits);
+                                localStorage.setItem('habitTracker_habits', JSON.stringify(resetHabits));
+                            }
+                            
+                            // Save updated user data
+                            localStorage.setItem('habitTracker_user', JSON.stringify(parsedUser));
+                            
+                            // Set new daily challenge
+                            const randomChallenge = challenges[Math.floor(Math.random() * challenges.length)];
+                            setDailyChallenge(randomChallenge);
+                        } else {
+                            setUser(parsedUser);
+                        }
+                    }
+                    
+                    if (savedHabits && user.lastActiveDate === new Date().toDateString()) {
                         setHabits(JSON.parse(savedHabits));
-                    } else {
-                        setHabits(mockHabits);
                     }
                     if (savedInventory) setInventory(JSON.parse(savedInventory));
                     if (savedFriends) setFriends(JSON.parse(savedFriends));
                 } catch (error) {
-                    setHabits(mockHabits);
+                    console.log('Error loading data:', error);
                 }
             }, []);
 
-            // Daily reset
+            // Auto-save data
             useEffect(() => {
-                const today = new Date().toDateString();
-                if (user.lastActiveDate !== today) {
-                    setUser(prev => ({
-                        ...prev,
-                        coinsEarnedToday: 0,
-                        lastActiveDate: today,
-                        completedChallenges: []
-                    }));
-                    
-                    setHabits(prev => prev.map(habit => ({
-                        ...habit,
-                        completedToday: false
-                    })));
-                    
-                    const randomChallenge = DAILY_CHALLENGES[Math.floor(Math.random() * DAILY_CHALLENGES.length)];
-                    setDailyChallenge(randomChallenge);
-                }
-            }, [user.lastActiveDate]);
+                localStorage.setItem('habitTracker_user', JSON.stringify(user));
+            }, [user]);
 
-            // Initialize daily challenge
             useEffect(() => {
-                if (!dailyChallenge) {
-                    const randomChallenge = DAILY_CHALLENGES[Math.floor(Math.random() * DAILY_CHALLENGES.length)];
-                    setDailyChallenge(randomChallenge);
-                }
-            }, []);
+                localStorage.setItem('habitTracker_habits', JSON.stringify(habits));
+            }, [habits]);
 
-            // Save data
-            useEffect(() => { localStorage.setItem('habitTracker_user', JSON.stringify(user)); }, [user]);
-            useEffect(() => { localStorage.setItem('habitTracker_habits', JSON.stringify(habits)); }, [habits]);
-            useEffect(() => { localStorage.setItem('habitTracker_inventory', JSON.stringify(inventory)); }, [inventory]);
-            useEffect(() => { localStorage.setItem('habitTracker_friends', JSON.stringify(friends)); }, [friends]);
+            useEffect(() => {
+                localStorage.setItem('habitTracker_inventory', JSON.stringify(inventory));
+            }, [inventory]);
+
+            useEffect(() => {
+                localStorage.setItem('habitTracker_friends', JSON.stringify(friends));
+            }, [friends]);
 
             // Helper functions
             const getDailyLimit = (subscription) => {
@@ -448,63 +462,45 @@
                 return Math.floor(baseAmount * multiplier);
             };
 
-            const calculateLevel = (totalXP) => {
-                return Math.floor(totalXP / CONFIG.LEVELS.XP_PER_LEVEL) + 1;
-            };
-
-            const awardXPAndCoins = (xpAmount, coinAmount) => {
+            const awardCoins = (baseAmount) => {
                 const dailyLimit = getDailyLimit(user.subscription);
                 const remainingLimit = dailyLimit - user.coinsEarnedToday;
                 
-                if (remainingLimit <= 0 && coinAmount > 0) {
-                    alert(`Daily coin limit reached! ${user.subscription === 'free' ? 'Upgrade to premium!' : 'Come back tomorrow!'}`);
+                if (remainingLimit <= 0) {
+                    alert(`Daily limit reached! ${user.subscription === 'free' ? 'Upgrade for more!' : 'Come back tomorrow!'}`);
                     return false;
                 }
                 
-                const coinReward = calculateReward(coinAmount, user.subscription);
-                const actualCoinReward = Math.min(coinReward, remainingLimit);
+                const reward = calculateReward(baseAmount, user.subscription);
+                const actualReward = Math.min(reward, remainingLimit);
                 
-                setUser(prev => {
-                    const newTotalXP = prev.totalXP + xpAmount;
-                    const newLevel = calculateLevel(newTotalXP);
-                    const leveledUp = newLevel > prev.level;
-                    
-                    const updatedUser = {
-                        ...prev,
-                        totalXP: newTotalXP,
-                        level: newLevel,
-                        xp: newTotalXP % CONFIG.LEVELS.XP_PER_LEVEL,
-                        currency: prev.currency + actualCoinReward,
-                        totalCoinsEarned: prev.totalCoinsEarned + actualCoinReward,
-                        coinsEarnedToday: prev.coinsEarnedToday + actualCoinReward,
-                        totalHabits: prev.totalHabits + 1
-                    };
-                    
-                    if (leveledUp) {
-                        setTimeout(() => alert(`🎉 Level Up! You're now level ${newLevel}!`), 500);
-                    }
-                    
-                    return updatedUser;
-                });
+                setUser(prev => ({
+                    ...prev,
+                    currency: prev.currency + actualReward,
+                    coinsEarnedToday: prev.coinsEarnedToday + actualReward,
+                    totalCoinsEarned: prev.totalCoinsEarned + actualReward,
+                    totalXP: prev.totalXP + CONFIG.LEVELS.XP_PER_HABIT,
+                    totalHabits: prev.totalHabits + 1
+                }));
                 
                 return true;
             };
 
             // Actions
             const completeHabit = (habitId) => {
-                const xpReward = CONFIG.LEVELS.XP_PER_HABIT;
-                const coinReward = CONFIG.REWARDS.HABIT_COMPLETION;
-                
-                if (awardXPAndCoins(xpReward, coinReward)) {
-                    const today = new Date().toISOString();
+                if (awardCoins(CONFIG.REWARDS.HABIT_COMPLETION)) {
                     setHabits(prev => prev.map(h => 
                         h.id === habitId 
-                            ? { ...h, completedToday: true, streak: h.streak + 1, lastCompleted: today }
+                            ? { ...h, completedToday: true, streak: h.streak + 1, lastCompleted: new Date().toISOString() }
                             : h
                     ));
                     setShowCelebration(true);
                     setTimeout(() => setShowCelebration(false), 2000);
                 }
+            };
+
+            const deleteHabit = (habitId) => {
+                setHabits(prev => prev.filter(h => h.id !== habitId));
             };
 
             const addHabit = () => {
@@ -520,29 +516,16 @@
                         lastCompleted: null
                     };
                     setHabits(prev => [...prev, habit]);
-                    setUser(prev => ({ ...prev, habitsCreated: prev.habitsCreated + 1 }));
                     setNewHabit({ name: '', icon: '⭐', category: 'health', color: 'from-purple-400 to-pink-400' });
                     setShowAddHabit(false);
                 }
             };
 
-            const deleteHabit = (habitId) => {
-                if (confirm('Are you sure you want to delete this habit?')) {
-                    setHabits(prev => prev.filter(habit => habit.id !== habitId));
-                }
-            };
-
             const encourageFriend = (friendId) => {
-                const xpReward = 5;
-                const coinReward = CONFIG.REWARDS.FRIEND_ENCOURAGEMENT;
-                
-                if (awardXPAndCoins(xpReward, coinReward)) {
+                if (awardCoins(CONFIG.REWARDS.FRIEND_ENCOURAGEMENT)) {
                     setFriends(prev => prev.map(friend => 
-                        friend.id === friendId 
-                            ? { ...friend, encouraged: true }
-                            : friend
+                        friend.id === friendId ? { ...friend, encouraged: true } : friend
                     ));
-                    setUser(prev => ({ ...prev, encouragementsGiven: prev.encouragementsGiven + 1 }));
                 }
             };
 
@@ -567,9 +550,9 @@
                     };
                     
                     setInventory(prev => [...prev, newItem]);
-                    alert(`Purchased ${item.name}! Check your profile to equip it. 🎉`);
+                    alert(`Purchased ${item.name}! 🎉`);
                 } else {
-                    alert('Not enough currency! Complete more habits to earn coins.');
+                    alert('Not enough currency!');
                 }
             };
 
@@ -592,8 +575,8 @@
 
             // Get equipped items
             const equippedTheme = inventory.find(item => item.type === 'theme' && item.equipped);
-            const equippedBadge = inventory.find(item => item.type === 'badge' && item.equipped);
             const equippedAvatar = inventory.find(item => item.type === 'avatar' && item.equipped);
+            const equippedBadge = inventory.find(item => item.type === 'badge' && item.equipped);
             const equippedPet = inventory.find(item => item.type === 'pet' && item.equipped);
 
             return (
@@ -650,12 +633,6 @@
                                         <div className="text-xs px-2 py-1 rounded-full bg-gray-100 text-gray-600">
                                             {user.coinsEarnedToday}/{getDailyLimit(user.subscription)}
                                         </div>
-                                        
-                                        {user.subscription !== 'free' && (
-                                            <div className="text-xs px-2 py-1 rounded-full font-semibold bg-blue-100 text-blue-600">
-                                                {user.subscription.toUpperCase()}
-                                            </div>
-                                        )}
                                         
                                         <div className="text-2xl">
                                             {equippedAvatar ? equippedAvatar.image : user.avatar}
@@ -754,7 +731,7 @@
                                         >
                                             All
                                         </button>
-                                        {HABIT_CATEGORIES.map(category => (
+                                        {categories.map(category => (
                                             <button
                                                 key={category.id}
                                                 onClick={() => setSelectedCategory(category.id)}
@@ -772,15 +749,11 @@
 
                                 {/* Habits */}
                                 <div>
-                                    <h2 className="text-2xl font-bold text-gray-800 mb-4">
-                                        {selectedCategory === 'all' ? 'Today\'s Habits' : `${HABIT_CATEGORIES.find(c => c.id === selectedCategory)?.name || ''} Habits`}
-                                    </h2>
+                                    <h2 className="text-2xl font-bold text-gray-800 mb-4">Today's Habits</h2>
                                     {filteredHabits.length === 0 ? (
                                         <div className="text-center py-12 bg-white rounded-2xl border">
                                             <div className="text-6xl mb-4">🎯</div>
-                                            <h3 className="text-xl font-semibold text-gray-700 mb-2">
-                                                {selectedCategory === 'all' ? 'No habits yet!' : 'No habits in this category!'}
-                                            </h3>
+                                            <h3 className="text-xl font-semibold text-gray-700 mb-2">No habits yet!</h3>
                                             <p className="text-gray-500 mb-4">Create your first habit to start building great routines.</p>
                                             <button
                                                 onClick={() => setShowAddHabit(true)}
@@ -802,25 +775,6 @@
                                         </div>
                                     )}
                                 </div>
-
-                                {/* Recent Achievements */}
-                                {user.achievements && user.achievements.length > 0 && (
-                                    <div>
-                                        <h2 className="text-2xl font-bold text-gray-800 mb-4">Recent Achievements</h2>
-                                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                                            {user.achievements.slice(-4).map(achievementId => {
-                                                const achievement = ACHIEVEMENTS.find(a => a.id === achievementId);
-                                                return achievement && (
-                                                    <div key={achievement.id} className="bg-white p-4 rounded-xl border shadow-sm text-center">
-                                                        <div className="text-3xl mb-2">{achievement.icon}</div>
-                                                        <h4 className="font-semibold text-sm text-gray-800">{achievement.name}</h4>
-                                                        <p className="text-xs text-gray-600">{achievement.description}</p>
-                                                    </div>
-                                                );
-                                            })}
-                                        </div>
-                                    </div>
-                                )}
 
                                 {/* Friends */}
                                 <div>
@@ -864,7 +818,7 @@
                                     </div>
                                 </div>
                                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                                    {mockShopItems.map(item => {
+                                    {shopItems.map(item => {
                                         const isOwned = inventory.some(invItem => invItem.itemId === item.id);
                                         return (
                                             <div key={item.id} className="bg-white rounded-xl p-4 border shadow-sm hover:shadow-md transition-shadow">
@@ -969,7 +923,7 @@
                             <div className="text-8xl animate-bounce">🎉</div>
                             <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 mt-20">
                                 <div className="bg-white px-6 py-3 rounded-full shadow-lg">
-                                    <span className="font-bold text-green-600">+10 Habit Coins!</span>
+                                    <span className="font-bold text-green-600">+{calculateReward(CONFIG.REWARDS.HABIT_COMPLETION, user.subscription)} Coins!</span>
                                 </div>
                             </div>
                         </div>
