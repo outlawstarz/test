@@ -218,11 +218,12 @@
                 if (!habit.lastCompleted) return null;
                 const lastCompleted = new Date(habit.lastCompleted);
                 const nextAvailable = new Date(lastCompleted.getTime() + 24 * 60 * 60 * 1000);
-                return nextAvailable > new Date() ? nextAvailable : null;
+                return nextAvailable;
             };
 
             const nextAvailableTime = getNextAvailableTime();
             const isOnCooldown = nextAvailableTime && nextAvailableTime > new Date();
+            const canComplete = !habit.completedToday || (habit.completedToday && !isOnCooldown);
 
             return (
                 <div className={`relative p-6 rounded-2xl bg-gradient-to-br ${habit.color} text-white shadow-lg transform transition-all duration-300 hover:scale-105 ${habit.completedToday ? 'opacity-90' : ''}`}>
@@ -271,7 +272,7 @@
                     </div>
 
                     {/* Button area */}
-                    {!habit.completedToday ? (
+                    {canComplete && !isOnCooldown ? (
                         <button 
                             onClick={handleComplete}
                             disabled={isCompleting}
@@ -284,10 +285,10 @@
                                 </div>
                             ) : (
                                 <>
-                                    Mark Complete
+                                    {habit.completedToday ? 'Complete Again' : 'Mark Complete'}
                                     {!canEarnCoins && (
                                         <div className="text-xs opacity-75 mt-1">
-                                            (Daily limit reached - no coins until {nextResetTime})
+                                            (Daily coin limit reached - resets at midnight EST)
                                         </div>
                                     )}
                                 </>
@@ -297,13 +298,18 @@
                         <div className="w-full py-3 bg-white bg-opacity-20 rounded-xl">
                             <CountdownTimer 
                                 targetTime={nextAvailableTime.toISOString()} 
-                                onComplete={() => window.location.reload()} 
+                                onComplete={() => {
+                                    // Update the specific habit when timer completes
+                                    setHabits(prev => prev.map(h => 
+                                        h.id === habit.id ? { ...h, completedToday: false } : h
+                                    ));
+                                }} 
                             />
                         </div>
                     ) : (
                         <div className="w-full py-3 bg-white bg-opacity-20 rounded-xl text-center">
                             <div className="font-semibold">✓ Completed!</div>
-                            <div className="text-xs opacity-75 mt-1">Great job! 🎉</div>
+                            <div className="text-xs opacity-75 mt-1">Available again soon 🎉</div>
                         </div>
                     )}
 
@@ -450,30 +456,20 @@
                     if (savedUser) {
                         const parsedUser = JSON.parse(savedUser);
                         
-                        // Check if it's a new day and reset
-                        const today = new Date().toDateString();
+                        // Check if it's a new day for coin reset (EST midnight)
+                        const now = new Date();
+                        const estNow = new Date(now.toLocaleString("en-US", {timeZone: "America/New_York"}));
+                        const today = estNow.toDateString();
+                        
                         if (parsedUser.lastActiveDate !== today) {
-                            console.log('New day detected! Resetting habits...');
+                            console.log('New day detected! Resetting daily coin limits...');
                             
-                            // Reset user daily data
+                            // Reset ONLY daily coin data, NOT habit completion status
                             parsedUser.coinsEarnedToday = 0;
                             parsedUser.lastActiveDate = today;
                             parsedUser.completedChallenges = [];
                             
                             setUser(parsedUser);
-                            
-                            // Reset habits completion status
-                            if (savedHabits) {
-                                const parsedHabits = JSON.parse(savedHabits);
-                                const resetHabits = parsedHabits.map(habit => ({
-                                    ...habit,
-                                    completedToday: false
-                                }));
-                                setHabits(resetHabits);
-                                localStorage.setItem('habitTracker_habits', JSON.stringify(resetHabits));
-                            }
-                            
-                            // Save updated user data
                             localStorage.setItem('habitTracker_user', JSON.stringify(parsedUser));
                             
                             // Set new daily challenge
@@ -484,9 +480,33 @@
                         }
                     }
                     
-                    if (savedHabits && user.lastActiveDate === new Date().toDateString()) {
-                        setHabits(JSON.parse(savedHabits));
+                    // Always load habits as-is, let individual timers handle availability
+                    if (savedHabits) {
+                        const parsedHabits = JSON.parse(savedHabits);
+                        
+                        // Check each habit's individual 24-hour cooldown
+                        const updatedHabits = parsedHabits.map(habit => {
+                            if (habit.lastCompleted) {
+                                const lastCompleted = new Date(habit.lastCompleted);
+                                const now = new Date();
+                                const hoursSinceCompletion = (now.getTime() - lastCompleted.getTime()) / (1000 * 60 * 60);
+                                
+                                // If more than 24 hours have passed, reset completedToday
+                                if (hoursSinceCompletion >= 24) {
+                                    return { ...habit, completedToday: false };
+                                }
+                            }
+                            return habit;
+                        });
+                        
+                        setHabits(updatedHabits);
+                        
+                        // Save updated habits if any changed
+                        if (JSON.stringify(updatedHabits) !== JSON.stringify(parsedHabits)) {
+                            localStorage.setItem('habitTracker_habits', JSON.stringify(updatedHabits));
+                        }
                     }
+                    
                     if (savedInventory) setInventory(JSON.parse(savedInventory));
                     if (savedFriends) setFriends(JSON.parse(savedFriends));
                 } catch (error) {
