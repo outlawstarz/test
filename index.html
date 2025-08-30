@@ -160,7 +160,41 @@
         ];
 
         // Components
-        const HabitCard = ({ habit, onComplete, onDelete }) => {
+        const CountdownTimer = ({ targetTime, onComplete }) => {
+            const [timeLeft, setTimeLeft] = useState('');
+
+            useEffect(() => {
+                const updateTimer = () => {
+                    const now = new Date();
+                    const target = new Date(targetTime);
+                    const difference = target.getTime() - now.getTime();
+
+                    if (difference > 0) {
+                        const hours = Math.floor(difference / (1000 * 60 * 60));
+                        const minutes = Math.floor((difference % (1000 * 60 * 60)) / (1000 * 60));
+                        const seconds = Math.floor((difference % (1000 * 60)) / 1000);
+                        
+                        setTimeLeft(`${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`);
+                    } else {
+                        setTimeLeft('00:00:00');
+                        if (onComplete) onComplete();
+                    }
+                };
+
+                updateTimer();
+                const interval = setInterval(updateTimer, 1000);
+                return () => clearInterval(interval);
+            }, [targetTime, onComplete]);
+
+            return (
+                <div className="text-center py-2">
+                    <div className="text-xs text-white opacity-75 mb-1">Available in:</div>
+                    <div className="text-lg font-bold text-white font-mono">{timeLeft}</div>
+                </div>
+            );
+        };
+
+        const HabitCard = ({ habit, onComplete, onDelete, canEarnCoins, nextResetTime }) => {
             const [isCompleting, setIsCompleting] = useState(false);
             const [showMenu, setShowMenu] = useState(false);
 
@@ -179,8 +213,19 @@
                 setShowMenu(false);
             };
 
+            // Calculate next available time for this habit (24 hours after last completion)
+            const getNextAvailableTime = () => {
+                if (!habit.lastCompleted) return null;
+                const lastCompleted = new Date(habit.lastCompleted);
+                const nextAvailable = new Date(lastCompleted.getTime() + 24 * 60 * 60 * 1000);
+                return nextAvailable > new Date() ? nextAvailable : null;
+            };
+
+            const nextAvailableTime = getNextAvailableTime();
+            const isOnCooldown = nextAvailableTime && nextAvailableTime > new Date();
+
             return (
-                <div className={`relative p-6 rounded-2xl bg-gradient-to-br ${habit.color} text-white shadow-lg transform transition-all duration-300 hover:scale-105 ${habit.completedToday ? 'opacity-75' : ''}`}>
+                <div className={`relative p-6 rounded-2xl bg-gradient-to-br ${habit.color} text-white shadow-lg transform transition-all duration-300 hover:scale-105 ${habit.completedToday ? 'opacity-90' : ''}`}>
                     <button 
                         onClick={() => setShowMenu(!showMenu)}
                         className="absolute top-2 right-2 w-8 h-8 bg-white bg-opacity-20 rounded-full flex items-center justify-center hover:bg-opacity-30 transition-all z-20"
@@ -225,7 +270,8 @@
                         </div>
                     </div>
 
-                    {!habit.completedToday && (
+                    {/* Button area */}
+                    {!habit.completedToday ? (
                         <button 
                             onClick={handleComplete}
                             disabled={isCompleting}
@@ -237,9 +283,28 @@
                                     Completing...
                                 </div>
                             ) : (
-                                'Mark Complete'
+                                <>
+                                    Mark Complete
+                                    {!canEarnCoins && (
+                                        <div className="text-xs opacity-75 mt-1">
+                                            (Daily limit reached - no coins until {nextResetTime})
+                                        </div>
+                                    )}
+                                </>
                             )}
                         </button>
+                    ) : isOnCooldown ? (
+                        <div className="w-full py-3 bg-white bg-opacity-20 rounded-xl">
+                            <CountdownTimer 
+                                targetTime={nextAvailableTime.toISOString()} 
+                                onComplete={() => window.location.reload()} 
+                            />
+                        </div>
+                    ) : (
+                        <div className="w-full py-3 bg-white bg-opacity-20 rounded-xl text-center">
+                            <div className="font-semibold">✓ Completed!</div>
+                            <div className="text-xs opacity-75 mt-1">Great job! 🎉</div>
+                        </div>
                     )}
 
                     {isCompleting && (
@@ -447,6 +512,35 @@
             }, [friends]);
 
             // Helper functions
+            const getNextMidnightEST = () => {
+                const now = new Date();
+                const est = new Date(now.toLocaleString("en-US", {timeZone: "America/New_York"}));
+                const tomorrow = new Date(est);
+                tomorrow.setDate(tomorrow.getDate() + 1);
+                tomorrow.setHours(0, 0, 0, 0);
+                
+                // Convert back to user's timezone
+                const offset = est.getTime() - now.getTime();
+                return new Date(tomorrow.getTime() - offset);
+            };
+
+            const formatTimeUntilReset = () => {
+                const nextReset = getNextMidnightEST();
+                const now = new Date();
+                const diff = nextReset.getTime() - now.getTime();
+                
+                if (diff <= 0) return 'Now';
+                
+                const hours = Math.floor(diff / (1000 * 60 * 60));
+                const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+                
+                if (hours > 0) {
+                    return `${hours}h ${minutes}m`;
+                } else {
+                    return `${minutes}m`;
+                }
+            };
+
             const getDailyLimit = (subscription) => {
                 switch(subscription) {
                     case 'vip': return CONFIG.DAILY_LIMITS.VIP_USER_COINS;
@@ -462,13 +556,19 @@
                 return Math.floor(baseAmount * multiplier);
             };
 
+            const canEarnCoins = () => {
+                const dailyLimit = getDailyLimit(user.subscription);
+                return user.coinsEarnedToday < dailyLimit;
+            };
+
             const awardCoins = (baseAmount) => {
                 const dailyLimit = getDailyLimit(user.subscription);
                 const remainingLimit = dailyLimit - user.coinsEarnedToday;
                 
+                // Always allow habit completion, but only award coins if under limit
                 if (remainingLimit <= 0) {
-                    alert(`Daily limit reached! ${user.subscription === 'free' ? 'Upgrade for more!' : 'Come back tomorrow!'}`);
-                    return false;
+                    // Still update habit completion and streak, but no coins
+                    return { success: true, coinsAwarded: 0, reason: 'Daily limit reached' };
                 }
                 
                 const reward = calculateReward(baseAmount, user.subscription);
@@ -483,19 +583,27 @@
                     totalHabits: prev.totalHabits + 1
                 }));
                 
-                return true;
+                return { success: true, coinsAwarded: actualReward, reason: 'Coins awarded' };
             };
 
             // Actions
             const completeHabit = (habitId) => {
-                if (awardCoins(CONFIG.REWARDS.HABIT_COMPLETION)) {
-                    setHabits(prev => prev.map(h => 
-                        h.id === habitId 
-                            ? { ...h, completedToday: true, streak: h.streak + 1, lastCompleted: new Date().toISOString() }
-                            : h
-                    ));
+                const result = awardCoins(CONFIG.REWARDS.HABIT_COMPLETION);
+                
+                // Always update habit completion regardless of coin limit
+                setHabits(prev => prev.map(h => 
+                    h.id === habitId 
+                        ? { ...h, completedToday: true, streak: h.streak + 1, lastCompleted: new Date().toISOString() }
+                        : h
+                ));
+                
+                // Show appropriate message based on coin award
+                if (result.coinsAwarded > 0) {
                     setShowCelebration(true);
                     setTimeout(() => setShowCelebration(false), 2000);
+                } else {
+                    // Show a different message for no coins but still completed
+                    alert(`Habit completed! 🎉 (Daily coin limit reached - resets in ${formatTimeUntilReset()})`);
                 }
             };
 
@@ -522,10 +630,15 @@
             };
 
             const encourageFriend = (friendId) => {
-                if (awardCoins(CONFIG.REWARDS.FRIEND_ENCOURAGEMENT)) {
-                    setFriends(prev => prev.map(friend => 
-                        friend.id === friendId ? { ...friend, encouraged: true } : friend
-                    ));
+                const result = awardCoins(CONFIG.REWARDS.FRIEND_ENCOURAGEMENT);
+                
+                // Always allow encouraging friends
+                setFriends(prev => prev.map(friend => 
+                    friend.id === friendId ? { ...friend, encouraged: true } : friend
+                ));
+                
+                if (result.coinsAwarded === 0) {
+                    alert(`Friend encouraged! 💪 (Daily coin limit reached - resets in ${formatTimeUntilReset()})`);
                 }
             };
 
@@ -631,7 +744,8 @@
                                         </div>
                                         
                                         <div className="text-xs px-2 py-1 rounded-full bg-gray-100 text-gray-600">
-                                            {user.coinsEarnedToday}/{getDailyLimit(user.subscription)}
+                                            {user.coinsEarnedToday}/{getDailyLimit(user.subscription)} 
+                                            {!canEarnCoins() && ` (resets in ${formatTimeUntilReset()})`}
                                         </div>
                                         
                                         <div className="text-2xl">
@@ -770,6 +884,8 @@
                                                     habit={habit}
                                                     onComplete={completeHabit}
                                                     onDelete={deleteHabit}
+                                                    canEarnCoins={canEarnCoins()}
+                                                    nextResetTime={formatTimeUntilReset()}
                                                 />
                                             ))}
                                         </div>
@@ -923,7 +1039,9 @@
                             <div className="text-8xl animate-bounce">🎉</div>
                             <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 mt-20">
                                 <div className="bg-white px-6 py-3 rounded-full shadow-lg">
-                                    <span className="font-bold text-green-600">+{calculateReward(CONFIG.REWARDS.HABIT_COMPLETION, user.subscription)} Coins!</span>
+                                    <span className="font-bold text-green-600">
+                                        +{calculateReward(CONFIG.REWARDS.HABIT_COMPLETION, user.subscription)} Coins!
+                                    </span>
                                 </div>
                             </div>
                         </div>
